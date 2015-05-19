@@ -1,0 +1,10 @@
+[package]
+name = "main"
+version = "0.0.1"
+authors = ["Robin <robinei@gmail.com>"]
+
+[[bin]]
+name = "main"
+
+[dependencies.sqlite]
+path = "../sqlite"

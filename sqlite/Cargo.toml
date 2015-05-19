@@ -1,0 +1,11 @@
+[package]
+name = "sqlite"
+version = "0.0.1"
+authors = ["Robin <robinei@gmail.com>"]
+build = "build.rs"
+
+[lib]
+name = "sqlite"
+
+[dependencies]
+libc = "*"

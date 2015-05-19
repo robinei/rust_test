@@ -1,0 +1,894 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"defa",
+				"default_button_style"
+			],
+			[
+				"defau",
+				"default_label_style"
+			],
+			[
+				"ULE",
+				"ULelem"
+			],
+			[
+				"enco",
+				"encoded"
+			],
+			[
+				"prin",
+				"println!	println! …"
+			],
+			[
+				"sour",
+				"source_path"
+			],
+			[
+				"sou",
+				"source_dir"
+			],
+			[
+				"max",
+				"max_blocks"
+			],
+			[
+				"buck",
+				"bucket"
+			],
+			[
+				"num",
+				"num_blocks"
+			],
+			[
+				"block",
+				"blocks"
+			],
+			[
+				"Mi",
+				"Log2MinBlockSize"
+			],
+			[
+				"bloc",
+				"block_size"
+			],
+			[
+				"bi",
+				"bucket_index"
+			],
+			[
+				"size",
+				"size_type"
+			],
+			[
+				"clust",
+				"cluster_keys"
+			],
+			[
+				"lo",
+				"lookup"
+			],
+			[
+				"buff",
+				"buffers"
+			],
+			[
+				"inser",
+				"insert_cluster_at"
+			],
+			[
+				"indei",
+				"index_in_buffer"
+			],
+			[
+				"bu",
+				"buffer"
+			],
+			[
+				"inde",
+				"index_in_cluster"
+			],
+			[
+				"clus",
+				"clusters"
+			],
+			[
+				"clu",
+				"clusters"
+			],
+			[
+				"c",
+				"cluster_pos"
+			],
+			[
+				"S",
+				"SparseArray"
+			],
+			[
+				"set",
+				"set_exception"
+			],
+			[
+				"excep",
+				"exception_ptr"
+			],
+			[
+				"Fun",
+				"FuncRunnable"
+			],
+			[
+				"do",
+				"do_schedule"
+			],
+			[
+				"schedu",
+				"scheduled"
+			],
+			[
+				"Upload",
+				"UploadEntry"
+			],
+			[
+				"clear",
+				"clear_suspend_flags"
+			],
+			[
+				"II",
+				"IImage"
+			],
+			[
+				"IIma",
+				"IImageFetcher"
+			],
+			[
+				"acc",
+				"account_id"
+			],
+			[
+				"get",
+				"get_thumb_url"
+			],
+			[
+				"pro",
+				"proto	Prototype"
+			],
+			[
+				"proto",
+				"prototype"
+			],
+			[
+				"numrow",
+				"numrows"
+			],
+			[
+				"scro",
+				"scrollTop"
+			],
+			[
+				"sc",
+				"scrollTop"
+			],
+			[
+				"thumb",
+				"thumbrow"
+			],
+			[
+				"mkey",
+				"monthkey"
+			],
+			[
+				"last",
+				"last_serial"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "src/main.rs",
+			"settings":
+			{
+				"buffer_size": 141,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "Cargo.toml",
+			"settings":
+			{
+				"buffer_size": 414,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "/C/git/Capture/Capture/Utils/WeakHandler.cs",
+			"settings":
+			{
+				"buffer_size": 3648,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "/C/Code/imgui.c",
+			"settings":
+			{
+				"buffer_size": 7868,
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "/C/Code/fixx.py",
+			"settings":
+			{
+				"buffer_size": 109,
+				"line_ending": "Windows"
+			}
+		}
+	],
+	"build_system": "Packages/Python/Python.sublime-build",
+	"build_system_choices":
+	[
+		[
+			[
+				[
+					"Packages/Python/Python.sublime-build",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					"Syntax Check"
+				]
+			],
+			[
+				"Packages/Python/Python.sublime-build",
+				""
+			]
+		],
+		[
+			[
+				[
+					"Packages/Rust/Cargo.sublime-build",
+					""
+				],
+				[
+					"Packages/Rust/Cargo.sublime-build",
+					"Run"
+				],
+				[
+					"Packages/Rust/Cargo.sublime-build",
+					"Test"
+				]
+			],
+			[
+				"Packages/Rust/Cargo.sublime-build",
+				"Run"
+			]
+		]
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 81.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"install",
+				"Package Control: Install Package"
+			],
+			[
+				"",
+				"Build: Cancel"
+			],
+			[
+				"remove",
+				"Package Control: Remove Package"
+			],
+			[
+				"package",
+				"Package Control: Remove Package"
+			],
+			[
+				"install ",
+				"Package Control: Install Package"
+			],
+			[
+				"resource",
+				"PackageResourceViewer: Open Resource"
+			]
+		],
+		"width": 400.0
+	},
+	"console":
+	{
+		"height": 139.0,
+		"history":
+		[
+			"import urllib.request,os,hashlib; h = '2deb499853c4371624f5a07e27c334aa' + 'bf8c4e67d14fb0525ba4f89698a6d7e1'; pf = 'Package Control.sublime-package'; ipp = sublime.installed_packages_path(); urllib.request.install_opener( urllib.request.build_opener( urllib.request.ProxyHandler()) ); by = urllib.request.urlopen( 'http://packagecontrol.io/' + pf.replace(' ', '%20')).read(); dh = hashlib.sha256(by).hexdigest(); print('Error validating download (got %s instead of %s), please try manual install' % (dh, h)) if dh != h else open(os.path.join( ipp, pf), 'wb' ).write(by)"
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"expanded_folders":
+	[
+		"/C/Code/rust_test",
+		"/C/Code/rust_test/src"
+	],
+	"file_history":
+	[
+		"/C/Users/robin_000/AppData/Local/Temp/7zO77AC.tmp/skel_export.py",
+		"/C/Users/robin_000/AppData/Local/Android/android-sdk/platform-tools/traces.txt",
+		"/G/seplugins/game.txt",
+		"/G/seplugins/pops.txt",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOEF3E.tmp/mdl_export.py",
+		"/C/Users/robin_000/AppData/Local/Temp/7zODE3A.tmp/Main.cpp",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO7FC0.tmp/VFS.h",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOF12B.tmp/tree.c",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO270A.tmp/asm.c",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO9BD.tmp/asmscan.c",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOB756.tmp/asmscan.re",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO91CC.tmp/asm.h",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO6164.tmp/main.cpp",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO176A.tmp/Main.cpp",
+		"/Z/backup/xps/Coding/haskell/game2/Main.hs",
+		"/Z/backup/xps/Coding/haskell/game/Main.hs",
+		"/Z/backup/xps/Coding/Projects/apl/apl/Main.c",
+		"/Z/backup/xps/Coding/Projects/engine/engine/Common.h",
+		"/Z/backup/xps/Coding/Projects/engine/engine/Geode.cpp",
+		"/Z/backup/xps/Coding/Projects/engine/engine/Group.h",
+		"/Z/backup/xps/Coding/Projects/engine/engine/Graph.h",
+		"/Z/backup/xps/Coding/Projects/engine/engine/Group.cpp",
+		"/Z/backup/xps/Coding/Projects/newcomp/newcomp/Main.cpp",
+		"/Z/backup/xps/Coding/Projects/radix/radix/main.c",
+		"/Z/backup/xps/Coding/Projects/test/test/Main.cpp",
+		"/Z/backup/xps/Coding/Projects/thread/thread/Main.cpp",
+		"/Z/backup/xps/Coding/Projects/wingui/wingui/widget.h",
+		"/Z/backup/xps/Coding/Projects/shadow/shadow/vmath.h",
+		"/Z/backup/xps/engine/engine/Main.cpp",
+		"/Z/backup/xps/engine/engine/Geometry.cpp",
+		"/Z/backup/xps/engine/engine/Misc.cpp",
+		"/Z/backup/xps/engine/engine/Transform.h",
+		"/Z/backup/xps/engine/engine/TreeNode.h",
+		"/Z/backup/xps/engine/engine/UI.cpp",
+		"/Z/backup/xps/engine/engine/UI.h",
+		"/Z/backup/xps/engine/engine/Util.h",
+		"/C/git/Capture.Net/Capture.Core/WizardModelHttp.cs",
+		"/C/git/Capture.Net/Capture.Core/Wizard.cs",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO1E01.tmp/win32_handmade.cpp",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOE3D5.tmp/win32_handmade.h",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOC3E8.tmp/linux_handmade.cpp",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO4D74.tmp/handmade_render_group.h",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOE83F.tmp/handmade_platform.h",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO926E.tmp/handmade_entity.cpp",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOD9AC.tmp/handmade_entity.h",
+		"/C/Code/rust_test/src/main.rs",
+		"/C/Users/robin_000/AppData/Local/Temp/Temp1_oving.zip/oving/Headers/sys.h",
+		"/C/Users/robin_000/AppData/Local/Temp/Temp1_particlegl.zip/particlegl/Sources/main.c",
+		"/C/Users/robin_000/AppData/Local/Temp/Temp1_prosjekt.zip/prosjekt/Main.hs",
+		"/C/Temp/test7/test7.cpp",
+		"/Z/backup/folk.ntnu.no/robine/ting/index.html",
+		"/Z/backup/folk.ntnu.no/robine/ex1.c",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO1CAA.tmp/readme_ds.txt",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO747.tmp/unicodedatabase.c",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOA8D8.tmp/utf8rewind.h",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO6EBC.tmp/LICENSE",
+		"/G/nesDS.ini",
+		"/C/Users/robin_000/Downloads/scumm/bass/readme.txt",
+		"/G/SCUMMVM.INI",
+		"/C/Users/robin_000/.ssh/id_rsa.pub",
+		"/C/Users/robin_000/.ssh/id_rsa_RobinTD.pub",
+		"/C/Users/robin_000/Downloads/nes_roms/organize.py",
+		"/C/Code/ConsoleApplication1/Program.cs",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO596.tmp/Readme.txt",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOAA64.tmp/main.c",
+		"/C/Users/robin_000/AppData/Roaming/Sublime Text 3/Packages/User/C#.sublime-settings",
+		"/C/git/Capture/Capture.Test/Program.cs",
+		"/C/git/Capture/Capture.iOS/AppDelegate.cs",
+		"/C/Users/robin_000/AppData/Roaming/Sublime Text 3/Packages/C++/C.tmLanguage",
+		"/C/Code/rust_test/Cargo.toml",
+		"/C/Code/game/build.bat",
+		"/C/Code/cpplib/main.cpp",
+		"/C/Users/robin_000/AppData/Roaming/Sublime Text 3/Packages/User/BatBuild.sublime-build",
+		"/C/Users/robin_000/AppData/Roaming/Sublime Text 3/Packages/User/CargoRelease.sublime-build",
+		"/C/Code/rust_test/src/src/sdl2/timer.rs",
+		"/C/Code/rust_test/cargo.toml",
+		"/C/Code/rust_test/main.rs",
+		"/C/Code/test.rs",
+		"/E/Games/System Shock 2/cam.cfg",
+		"/E/Games/System Shock 2/lg.ini",
+		"/C/Code/test/async.cpp",
+		"/E/Games/System Shock 2/cam_ext.cfg",
+		"/E/Games/System Shock 2/cam_mod.ini",
+		"/C/Users/robin_000/AppData/Local/4A Games/Metro 2033/1100001005e5115/user.cfg",
+		"/C/Users/robin_000/AppData/Roaming/Bioshock/bioshock.ini",
+		"/C/Users/robin_000/AppData/Roaming/Bioshock/User.ini",
+		"/E/Games/System Shock 2/shock.cfg",
+		"/C/Users/robin_000/Downloads/BenQ XL2420Z 120Hz.icm",
+		"/C/Users/robin_000/Documents/my games/borderlands/WillowGame/Config/WillowEngine.ini",
+		"/C/Users/robin_000/Documents/my games/borderlands/WillowGame/Config/WillowInput.ini",
+		"/C/Code/monogame/Primevil/Primevil/Formats/BinaryReader.cs",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOC4E5.tmp/bt_code.c",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO9C7C.tmp/btree.h",
+		"/C/Tools/dosbox/dosbox.conf",
+		"/C/Users/robin_000/Documents/my games/Styx/StyxGame/Config/StyxEngine.ini",
+		"/C/Code/gui.cpp",
+		"/C/Code/test/main.cpp",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO2E30.tmp/2XSAI.CPP",
+		"/C/Code/TEST.PY",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO8F21.tmp/README",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOC3A5.tmp/Hello1.designer.cs",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO6B82.tmp/Hello1.cs",
+		"/C/Code/monogame/Primevil/.git/config",
+		"/C/Users/robin_000/Documents/my games/Crysis/game.cfg",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOB3E3.tmp/Agent.cs",
+		"/C/Users/robin_000/Documents/fullscreen.ahk",
+		"/C/Users/robin_000/Documents/warband.ahk",
+		"/E/SteamLibrary/SteamApps/common/Skyrim/src/common/IMemPool.h",
+		"/E/SteamLibrary/SteamApps/common/Skyrim/src/common/IPipeServer.h",
+		"/E/SteamLibrary/SteamApps/common/Skyrim/src/common/ITimer.h",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOA6F5.tmp/Game1.cs",
+		"/C/Users/robin_000/AppData/Local/Temp/7zO764E.tmp/Game1.cs",
+		"/C/Code/Diablo I.txt",
+		"/C/Temp/C#/MediaViewer/Themes/generic.xaml",
+		"/C/git/Capture/Capture.WP/App.xaml",
+		"/C/Temp/C#/sdkBasicLensWP8CS/MainPage.xaml",
+		"/C/Temp/C#/sdkBasicLensWP8CS/App.xaml",
+		"/C/Temp/C#/sdkBasicLensWP8CS/Viewfinder.xaml.cs",
+		"/C/Temp/C#/sdkBasicLensWP8CS/ViewModels/LensViewModel.cs",
+		"/C/Temp/C#/sdkBasicLensWP8CS/MainPage.xaml.cs",
+		"/E/Games/Diablo/Diablo I.txt",
+		"/C/Code/game3/game/PathFinder.h",
+		"/C/Code/monogame/Primevil/Primevil.sln",
+		"/E/Games/Diablo/Data/player_save/save0.chr",
+		"/C/Temp/C#/sdkBasicLensWP8CS/Viewfinder.xaml",
+		"/C/Temp/C#/MediaViewer/Properties/AssemblyInfo.cs",
+		"/C/Users/robin_000/AppData/Local/Temp/7zOB9C2.tmp/ItemDisplayedEventArgs.cs",
+		"/C/Temp/foo.py"
+	],
+	"find":
+	{
+		"height": 34.0
+	},
+	"find_in_files":
+	{
+		"height": 90.0,
+		"where_history":
+		[
+			"*.py"
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": true,
+		"find_history":
+		[
+			"button_box",
+			"UI",
+			"UIEvent",
+			"UIButton",
+			"UIElem",
+			"UIContext",
+			";\n",
+			"Capture.Android",
+			"gridDim",
+			"i32",
+			"discretize_x",
+			"printf",
+			"puts",
+			"min",
+			"max",
+			"min",
+			"max",
+			"minp",
+			"min",
+			"float",
+			"mask",
+			"64",
+			"FULL_CLUSTER_MASK",
+			"Key",
+			"Mask",
+			"cluster_keys",
+			"buffer",
+			"count",
+			"uint",
+			"count",
+			"first_key",
+			"covers_key",
+			"first_key",
+			"Key",
+			"set_has_value_at_index",
+			"Cluster<",
+			"Cluster<T>",
+			"lookup",
+			"num_values",
+			"i",
+			"resol",
+			"VSync",
+			"PlayerInput",
+			"ReduceMouseLag",
+			"False",
+			"sync",
+			"DefaultPostProcessName",
+			"InputKeyName=\"MouseScrollDown\",ModifierKeyFlags=42",
+			"InputKeyName=\"MouseScrollUp\",ModifierKeyFlags=42",
+			"Name=\"X\"",
+			"MoveForward | Axis aGas Speed=",
+			"[WillowGame.WillowPlayerInput]",
+			"hardwa",
+			"wl.cl2",
+			".dun",
+			"town.min",
+			"town.dun",
+			"dun",
+			"town",
+			".pal",
+			"Async",
+			"placeholder",
+			"IThumbnailedImage",
+			"placeholder",
+			"CameraRoll",
+			"MediaViewer",
+			"media",
+			"MemotyStream",
+			"elem",
+			"DirToJob",
+			"link_dir_to_job",
+			"get_str(",
+			"get_int(",
+			"set_link",
+			"get_link",
+			"link_prop",
+			"get_link_id",
+			"comtypes",
+			"link_prop",
+			"self.used_space",
+			"_account_info_time",
+			"is_logged_in",
+			"is_connected",
+			"do_get_account_info",
+			"http.default_host",
+			"DbPath",
+			"get_data_dir",
+			"get_share_dir",
+			"ca-bundle",
+			"CPPFIXME",
+			"PyGAsyncOperation",
+			"PyIAsyncOperation",
+			"IID_IAsyncOperation",
+			"IAsyncOperation",
+			"PyIAsyncOperation",
+			"PyIAsyncOperation.h",
+			"Found version",
+			"use_qt5",
+			"extra",
+			"manifest",
+			"[^\\\"']win32",
+			"[^\\\"]win32",
+			"use_qt5",
+			"get_home_dir",
+			"_init_com",
+			"win32api",
+			"win32file",
+			"win32com",
+			"SetupEnvironment",
+			"shellcon",
+			"shell",
+			"win32shell",
+			"axscript",
+			"pythonwin_extensions",
+			"win32uiole",
+			"win32ui",
+			"WinExt_win32com",
+			"win32comext",
+			"MachineDebugManager",
+			"MachineManager",
+			"find_platform_sdk_dir",
+			"get_build_version",
+			"win32",
+			"include_dirs",
+			"WinExt",
+			"windows_h_version",
+			"qt_dir",
+			"Qtgui"
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+			"hbox",
+			"UL",
+			"UIevent",
+			"UIbutton",
+			"UIelem",
+			"UIcontext",
+			"minp",
+			"maxp",
+			"zmax",
+			"zmin",
+			"maxp",
+			"minp",
+			"mark_value_at_index",
+			"lookup_mut",
+			"count",
+			"w",
+			"InputKeyName=\"MouseScrollDown\"",
+			"InputKeyName=\"MouseScrollUp\"",
+			"Task",
+			"child",
+			"",
+			"PyGDataObjectAsyncCapability",
+			"PyIDataObjectAsyncCapability",
+			"IID_IDataObjectAsyncCapability",
+			"IDataObjectAsyncCapability",
+			"TValue",
+			"TKey",
+			"userid",
+			"module",
+			"numrows",
+			"ppr",
+			"timelinerow",
+			"deldirs",
+			"dirtydirs",
+			"dirty",
+			"delfrom"
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": true,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 0,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "src/main.rs",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 141,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								137,
+								137
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Rust/Rust.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "Cargo.toml",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 414,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								414,
+								414
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Text/Plain text.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "/C/git/Capture/Capture/Utils/WeakHandler.cs",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 3648,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								3463,
+								3471
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C#/C#.tmLanguage",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 742.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "/C/Code/imgui.c",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 7868,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								600,
+								600
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/C++/C++.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 59.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "/C/Code/fixx.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 109,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								109,
+								109
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 25.0
+	},
+	"input":
+	{
+		"height": 0.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.exec":
+	{
+		"height": 466.0
+	},
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"output.variable_get":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "Packages/Python/Python.sublime-build",
+	"project": "rust_test.sublime-project",
+	"replace":
+	{
+		"height": 62.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 238.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}
