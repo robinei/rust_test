@@ -37,11 +37,19 @@ fn main() {
     let db = sqlite::open(":memory:").unwrap();
 
         println!("prepare...");
-        let mut stmt = db.prepare("SELECT 123").unwrap();
-        stmt.reset().unwrap();
+        let mut stmt = db.prepare("SELECT 'asdf'").unwrap();
+        /*stmt.reset().unwrap();
         if stmt.step().unwrap() {
             println!("got value: {}", stmt.get(0));
+        }*/
+
+        {
+            let row = stmt.step_row().unwrap();
+            let val = row.get_text(0).unwrap();
+            println!("got value: '{}'", val);
         }
+        stmt.reset().unwrap();
+
         //let mut stmt2 = db.prepare("CREATE TABLE test (foo INTEGER)").unwrap();
     }
 
