@@ -376,3 +376,80 @@ impl<'db, 'stmt> Row<'db, 'stmt> {
     }
 }
 
+
+#[cfg(test)]
+mod tests {
+    use {open};
+    use std;
+
+    #[test]
+    fn test_simple_get_int() {
+        let mut db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT 123").unwrap();
+        let row = stmt.step_row().unwrap();
+        assert_eq!(123, row.get_int(0).unwrap());
+    }
+
+    #[test]
+    fn test_simple_echo_int64() {
+        let mut db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT ?").unwrap();
+        stmt.bind_int64(1, 888).unwrap();
+        let row = stmt.step_row().unwrap();
+        assert_eq!(888, row.get_int(0).unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "syntax error")]
+    fn test_prepare_syntax_error() {
+        let mut db = open(":memory:").unwrap();
+        db.prepare("SEKECT 1").unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "TypeMismatch(Text, Blob)")]
+    fn test_type_mismatch() {
+        let mut db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT ?").unwrap();
+        stmt.bind_zeroblob(1, 10).unwrap();
+        let row = stmt.step_row().unwrap();
+        row.get_text(0).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "BadUtf8")]
+    fn test_utf8_error() {
+        let mut db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT ?").unwrap();
+        let v = vec![0,1,2,3,4,255];
+        let s = unsafe { std::str::from_utf8_unchecked(&v[..]) };
+        stmt.bind_text(1, s).unwrap();
+        let row = stmt.step_row().unwrap();
+        row.get_text(0).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "StrNulByte")]
+    fn test_str_nul_error() {
+        let v = vec![0,1,2,3,4,255];
+        let s = unsafe { std::str::from_utf8_unchecked(&v[..]) };
+        open(s).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "NotDone")]
+    fn test_not_done_error() {
+        let mut db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT 123").unwrap();
+        stmt.step_done().unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "NoRow")]
+    fn test_no_row_error() {
+        let mut db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("BEGIN").unwrap();
+        stmt.step_row().unwrap();
+    }
+}
+
