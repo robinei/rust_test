@@ -9,3 +9,5 @@ name = "sqlite"
 
 [dependencies]
 libc = "*"
+enum_primitive = "*"
+num = "*"

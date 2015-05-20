@@ -1,5 +1,9 @@
 extern crate libc;
 
+#[macro_use] extern crate enum_primitive;
+extern crate num;
+use num::FromPrimitive;
+
 use libc::{c_char, c_int, c_double, uint8_t, int64_t, intptr_t};
 use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
@@ -50,7 +54,7 @@ extern {
 const TRANSIENT: intptr_t = -1 as intptr_t;
 
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum Type {
     Integer = 1,
     Float = 2,
@@ -75,7 +79,8 @@ fn to_type(code: i32) -> Type {
 const ROW: i32 = 100;
 const DONE: i32 = 101;
 
-#[derive(Debug, Eq, PartialEq)]
+enum_from_primitive! {
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
 pub enum ErrorCode {
     Error = 1,
     Internal = 2,
@@ -106,51 +111,59 @@ pub enum ErrorCode {
     Notice = 27,
     Warning = 28
 }
+}
 
 fn db_error<T>(code: i32, msg: String) -> Result<T> {
-    let err = match code {
-        1 => ErrorCode::Error,
-        2 => ErrorCode::Internal,
-        3 => ErrorCode::Perm,
-        4 => ErrorCode::Abort,
-        5 => ErrorCode::Busy,
-        6 => ErrorCode::Locked,
-        7 => ErrorCode::NoMem,
-        8 => ErrorCode::ReadOnly,
-        9 => ErrorCode::Interrupt,
-        10 => ErrorCode::IOError,
-        11 => ErrorCode::Corrupt,
-        12 => ErrorCode::NotFound,
-        13 => ErrorCode::Full,
-        14 => ErrorCode::CantOpen,
-        15 => ErrorCode::Protocol,
-        16 => ErrorCode::Empty,
-        17 => ErrorCode::Schema,
-        18 => ErrorCode::TooBig,
-        19 => ErrorCode::Constraint,
-        20 => ErrorCode::Mismatch,
-        21 => ErrorCode::Misuse,
-        22 => ErrorCode::NoLFS,
-        23 => ErrorCode::Auth,
-        24 => ErrorCode::Format,
-        25 => ErrorCode::Range,
-        26 => ErrorCode::NotADB,
-        27 => ErrorCode::Notice,
-        28 => ErrorCode::Warning,
-        _ => return Err(Error::UnknownDbError(code, msg))
-    };
-    Err(Error::DbError(err, msg))
+    match ErrorCode::from_i32(code) {
+        Some(err) => Err(Error::DbError(err, msg)),
+        None => Err(Error::UnknownDbError(code, msg))
+    }
 }
 
 #[derive(Debug)]
 pub enum Error {
+    NotDone,
+    NoRow,
     DbError(ErrorCode, String),
     UnknownDbError(i32, String),
+    TypeMismatch(Type, Type),
     StrNulByte(std::ffi::NulError),
     BadUtf8(std::str::Utf8Error),
-    TypeMismatch(Type, Type),
-    NotDone,
-    NoRow
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            Error::NotDone => write!(f, "Got row while expecting statement to be done."),
+            Error::NoRow => write!(f, "Statement was done while expecting row."),
+            Error::DbError(err, ref msg) => write!(f, "The database operation failed with error {:?} ({}): {}", err, err as i32, msg),
+            Error::UnknownDbError(code, ref msg) => write!(f, "The database operation failed with unknown error code {}: {}", code, msg),
+            Error::TypeMismatch(expected, found) => write!(f, "Expected type {:?}, but found type {:?} while getting column value", expected, found),
+            Error::StrNulByte(ref err) => err.fmt(f),
+            Error::BadUtf8(ref err) => err.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for Error {
+    fn description(&self) -> &str {
+        match *self {
+            Error::NotDone => "Got row while expecting statement to be done.",
+            Error::NoRow => "Statement was done while expecting row.",
+            Error::DbError(..) => "The database operation failed",
+            Error::UnknownDbError(..) => "The database operation failed",
+            Error::TypeMismatch(..) => "Unexpected type while getting column value",
+            Error::StrNulByte(ref err) => err.description(),
+            Error::BadUtf8(ref err) => err.description(),
+        }
+    }
+    fn cause(&self) -> Option<&std::error::Error> {
+        match *self {
+            Error::StrNulByte(ref err) => Some(err),
+            Error::BadUtf8(ref err) => Some(err),
+            _ => None
+        }
+    }
 }
 
 impl From<std::ffi::NulError> for Error {
@@ -232,7 +245,7 @@ impl Database {
         db_result!((), unsafe { sqlite3_close(self.ptr) }, db_errmsg(self.ptr))
     }
 
-    pub fn prepare<'a>(&'a mut self, sql: &str) -> Result<Statement<'a>> {
+    pub fn prepare<'a>(&'a self, sql: &str) -> Result<Statement<'a>> {
         let sql_c = try!(CString::new(sql));
         let mut stmt = Statement { ptr: std::ptr::null(), phantom: PhantomData };
         let code = unsafe {
@@ -383,33 +396,61 @@ mod tests {
     use std;
 
     #[test]
-    fn test_simple_get_int() {
-        let mut db = open(":memory:").unwrap();
-        let mut stmt = db.prepare("SELECT 123").unwrap();
-        let row = stmt.step_row().unwrap();
-        assert_eq!(123, row.get_int(0).unwrap());
-    }
-
-    #[test]
-    fn test_simple_echo_int64() {
-        let mut db = open(":memory:").unwrap();
+    fn test_simple_echo_int() {
+        let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind_int64(1, 888).unwrap();
+        stmt.bind_int(1, 888).unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!(888, row.get_int(0).unwrap());
     }
 
     #[test]
-    #[should_panic(expected = "syntax error")]
+    fn test_simple_echo_int64() {
+        let db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT ?").unwrap();
+        stmt.bind_int64(1, 888).unwrap();
+        let row = stmt.step_row().unwrap();
+        assert_eq!(888, row.get_int64(0).unwrap());
+    }
+
+    #[test]
+    fn test_simple_echo_double() {
+        let db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT ?").unwrap();
+        stmt.bind_double(1, 3.14).unwrap();
+        let row = stmt.step_row().unwrap();
+        assert_eq!(3.14, row.get_double(0).unwrap());
+    }
+
+    #[test]
+    fn test_simple_echo_text() {
+        let db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT ?").unwrap();
+        stmt.bind_text(1, "foobar").unwrap();
+        let row = stmt.step_row().unwrap();
+        assert_eq!("foobar", row.get_text(0).unwrap());
+    }
+
+    #[test]
+    fn test_simple_echo_blob() {
+        let db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT ?").unwrap();
+        stmt.bind_blob(1, &[0,1,2]).unwrap();
+        let row = stmt.step_row().unwrap();
+        assert_eq!(&[0,1,2], row.get_blob(0).unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = " DbError")]
     fn test_prepare_syntax_error() {
-        let mut db = open(":memory:").unwrap();
+        let db = open(":memory:").unwrap();
         db.prepare("SEKECT 1").unwrap();
     }
 
     #[test]
     #[should_panic(expected = "TypeMismatch(Text, Blob)")]
     fn test_type_mismatch() {
-        let mut db = open(":memory:").unwrap();
+        let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
         stmt.bind_zeroblob(1, 10).unwrap();
         let row = stmt.step_row().unwrap();
@@ -419,10 +460,10 @@ mod tests {
     #[test]
     #[should_panic(expected = "BadUtf8")]
     fn test_utf8_error() {
-        let mut db = open(":memory:").unwrap();
+        let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        let v = vec![0,1,2,3,4,255];
-        let s = unsafe { std::str::from_utf8_unchecked(&v[..]) };
+        let v = [0,1,2,3,4,255];
+        let s = unsafe { std::str::from_utf8_unchecked(&v) };
         stmt.bind_text(1, s).unwrap();
         let row = stmt.step_row().unwrap();
         row.get_text(0).unwrap();
@@ -430,16 +471,25 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "StrNulByte")]
-    fn test_str_nul_error() {
-        let v = vec![0,1,2,3,4,255];
-        let s = unsafe { std::str::from_utf8_unchecked(&v[..]) };
+    fn test_str_nul_error_open() {
+        let v = [0,1,2,3,4,255];
+        let s = unsafe { std::str::from_utf8_unchecked(&v) };
         open(s).unwrap();
+    }
+
+    #[test]
+    #[should_panic(expected = "StrNulByte")]
+    fn test_str_nul_error_prepare() {
+        let v = [0,1,2,3,4,255];
+        let s = unsafe { std::str::from_utf8_unchecked(&v) };
+        let db = open(":memory:").unwrap();
+        db.prepare(s).unwrap();
     }
 
     #[test]
     #[should_panic(expected = "NotDone")]
     fn test_not_done_error() {
-        let mut db = open(":memory:").unwrap();
+        let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT 123").unwrap();
         stmt.step_done().unwrap();
     }
@@ -447,7 +497,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "NoRow")]
     fn test_no_row_error() {
-        let mut db = open(":memory:").unwrap();
+        let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("BEGIN").unwrap();
         stmt.step_row().unwrap();
     }

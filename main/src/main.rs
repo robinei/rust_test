@@ -64,6 +64,7 @@ fn main() {
         create_tables(&mut db).unwrap();
 
         println!("prepare...");
+        let mut stmt0 = db.prepare("SELECT 1").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
         stmt.bind_text(1, "jalla jalla").unwrap();
         /*stmt.reset().unwrap();
@@ -75,8 +76,11 @@ fn main() {
             let row = stmt.step_row().unwrap();
             let val = row.get_text(0).unwrap();
             println!("got value: '{}'", val);
+
+            stmt0.step_row().unwrap();
         }
         stmt.reset().unwrap();
+        stmt0.reset().unwrap();
 
         //let mut stmt2 = db.prepare("CREATE TABLE test (foo INTEGER)").unwrap();
     }
