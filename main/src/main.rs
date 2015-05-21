@@ -66,7 +66,7 @@ fn main() {
         println!("prepare...");
         let mut stmt0 = db.prepare("SELECT 1").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind_text(1, "jalla jalla").unwrap();
+        stmt.bind(1, "jalla jalla").unwrap();
         /*stmt.reset().unwrap();
         if stmt.step().unwrap() {
             println!("got value: {}", stmt.get(0));

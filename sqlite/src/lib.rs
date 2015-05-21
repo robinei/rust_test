@@ -124,6 +124,7 @@ fn db_error<T>(code: i32, msg: String) -> Result<T> {
 pub enum Error {
     NotDone,
     NoRow,
+    WrongParamCount(i32, i32),
     DbError(ErrorCode, String),
     UnknownDbError(i32, String),
     TypeMismatch(Type, Type),
@@ -136,6 +137,7 @@ impl std::fmt::Display for Error {
         match *self {
             Error::NotDone => write!(f, "Got row while expecting statement to be done."),
             Error::NoRow => write!(f, "Statement was done while expecting row."),
+            Error::WrongParamCount(expected, found) => write!(f, "Expected {} parameters but got {}.", expected, found),
             Error::DbError(err, ref msg) => write!(f, "The database operation failed with error {:?} ({}): {}", err, err as i32, msg),
             Error::UnknownDbError(code, ref msg) => write!(f, "The database operation failed with unknown error code {}: {}", code, msg),
             Error::TypeMismatch(expected, found) => write!(f, "Expected type {:?}, but found type {:?} while getting column value", expected, found),
@@ -150,6 +152,7 @@ impl std::error::Error for Error {
         match *self {
             Error::NotDone => "Got row while expecting statement to be done.",
             Error::NoRow => "Statement was done while expecting row.",
+            Error::WrongParamCount(..) => "Wrong parameter count.",
             Error::DbError(..) => "The database operation failed",
             Error::UnknownDbError(..) => "The database operation failed",
             Error::TypeMismatch(..) => "Unexpected type while getting column value",
@@ -278,6 +281,25 @@ impl<'db> Statement<'db> {
         db_result!((), unsafe { sqlite3_reset(self.ptr) }, stmt_errmsg(self.ptr))
     }
 
+    pub fn bind_all(&mut self, vals: &[&BindValue]) -> Result<()> {
+        let expected = vals.len() as i32;
+        let found = self.column_count();
+        if expected != found {
+            return Err(Error::WrongParamCount(expected, found));
+        }
+
+        let mut pos = 0;
+        for val in vals {
+            pos += 1;
+            try!(val.bind(self, pos));
+        };
+        Ok(())
+    }
+
+    pub fn bind<T: BindValue>(&mut self, pos: i32, val: T) -> Result<()> {
+        val.bind(self, pos)
+    }
+
     pub fn bind_int(&mut self, pos: i32, val: i32) -> Result<()> {
         db_result!((), unsafe { sqlite3_bind_int(self.ptr, pos, val) }, stmt_errmsg(self.ptr))
     }
@@ -329,6 +351,9 @@ impl<'db> Statement<'db> {
     pub fn busy(&self) -> bool {
         unsafe { sqlite3_stmt_busy(self.ptr) != 0 }
     }
+    pub fn column_count(&self) -> i32 {
+        unsafe { sqlite3_column_count(self.ptr) }
+    }
 }
 
 impl<'db> Drop for Statement<'db> {
@@ -341,6 +366,61 @@ impl<'db> Drop for Statement<'db> {
 }
 
 
+pub trait BindValue {
+    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()>;
+}
+
+impl BindValue for i32 {
+    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
+        stmt.bind_int(pos, *self)
+    }
+}
+impl BindValue for i64 {
+    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
+        stmt.bind_int64(pos, *self)
+    }
+}
+impl BindValue for f64 {
+    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
+        stmt.bind_double(pos, *self)
+    }
+}
+impl<'a> BindValue for &'a str {
+    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
+        stmt.bind_text(pos, *self)
+    }
+}
+impl<'a> BindValue for &'a [u8] {
+    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
+        stmt.bind_blob(pos, *self)
+    }
+}
+impl BindValue for () {
+    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
+        stmt.bind_null(pos)
+    }
+}
+
+// implement BindValue for fixed size arrays up to a limitied size
+macro_rules! array_impls {
+    ($($N:expr)+) => {
+        $(
+            impl<'a> BindValue for &'a [u8; $N] {
+                fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
+                    stmt.bind_blob(pos, *self)
+                }
+            }
+        )+
+    }
+}
+array_impls! {
+     0  1  2  3  4  5  6  7  8  9
+    10 11 12 13 14 15 16 17 18 19
+    20 21 22 23 24 25 26 27 28 29
+    30 31 32
+}
+
+
 macro_rules! assert_type {
     ($expected_type:expr, $found_type:expr) => {{
         if $expected_type != $found_type {
@@ -350,10 +430,6 @@ macro_rules! assert_type {
 }
 
 impl<'db, 'stmt> Row<'db, 'stmt> {
-    pub fn column_count(&self) -> i32 {
-        unsafe { sqlite3_column_count(self.stmt.ptr) }
-    }
-
     pub fn get_type(&self, col: i32) -> Type {
         unsafe { to_type(sqlite3_column_type(self.stmt.ptr, col)) }
     }
@@ -392,14 +468,67 @@ impl<'db, 'stmt> Row<'db, 'stmt> {
 
 #[cfg(test)]
 mod tests {
-    use {open};
+    use {open, BindValue};
     use std;
+
+    struct Foo<'a> {
+        a: i32,
+        b: i64,
+        c: f64,
+        d: &'a str,
+        e: &'a [u8]
+    }
+
+    #[test]
+    fn test_readonly() {
+        let db = open(":memory:").unwrap();
+        let stmt = db.prepare("SELECT ?, ?, ?").unwrap();
+        assert_eq!(true, stmt.readonly());
+    }
+
+    #[test]
+    fn test_not_readonly() {
+        let db = open(":memory:").unwrap();
+        let stmt = db.prepare("CREATE TABLE foo (bar INTEGER)").unwrap();
+        assert_eq!(false, stmt.readonly());
+    }
+
+    #[test]
+    fn test_column_count() {
+        let db = open(":memory:").unwrap();
+        let stmt = db.prepare("SELECT ?, ?, ?").unwrap();
+        assert_eq!(3, stmt.column_count());
+    }
+
+    #[test]
+    #[should_panic(expected = "WrongParamCount(3, 5)")]
+    fn test_bind_all_wrong_count() {
+        let db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT ?, ?, ?, ?, ?").unwrap();
+        stmt.bind_all(&[&(99 as i32),
+                        &(66 as i64),
+                        &(3.14 as f64)]).unwrap();
+    }
+
+    #[test]
+    fn test_bind_all_echo() {
+        let db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT ?, ?, ?, ?, ?").unwrap();
+        let foo = Foo { a:99, b:66, c:3.14, d:"foo", e:&[123]};
+        stmt.bind_all(&[&foo.a, &foo.b, &foo.c, &foo.d, &foo.e]).unwrap();
+        let row = stmt.step_row().unwrap();
+        assert_eq!(99, row.get_int(0).unwrap());
+        assert_eq!(66, row.get_int64(1).unwrap());
+        assert_eq!(3.14, row.get_double(2).unwrap());
+        assert_eq!("foo", row.get_text(3).unwrap());
+        assert_eq!(&[123], row.get_blob(4).unwrap());
+    }
 
     #[test]
     fn test_simple_echo_int() {
         let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind_int(1, 888).unwrap();
+        stmt.bind(1, 888 as i32).unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!(888, row.get_int(0).unwrap());
     }
@@ -408,7 +537,7 @@ mod tests {
     fn test_simple_echo_int64() {
         let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind_int64(1, 888).unwrap();
+        stmt.bind(1, 888 as i64).unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!(888, row.get_int64(0).unwrap());
     }
@@ -417,7 +546,7 @@ mod tests {
     fn test_simple_echo_double() {
         let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind_double(1, 3.14).unwrap();
+        stmt.bind(1, 3.14).unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!(3.14, row.get_double(0).unwrap());
     }
@@ -426,7 +555,7 @@ mod tests {
     fn test_simple_echo_text() {
         let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind_text(1, "foobar").unwrap();
+        stmt.bind(1, "foobar").unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!("foobar", row.get_text(0).unwrap());
     }
@@ -435,7 +564,7 @@ mod tests {
     fn test_simple_echo_blob() {
         let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind_blob(1, &[0,1,2]).unwrap();
+        stmt.bind(1, &[0,1,2]).unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!(&[0,1,2], row.get_blob(0).unwrap());
     }
@@ -464,7 +593,7 @@ mod tests {
         let mut stmt = db.prepare("SELECT ?").unwrap();
         let v = [0,1,2,3,4,255];
         let s = unsafe { std::str::from_utf8_unchecked(&v) };
-        stmt.bind_text(1, s).unwrap();
+        stmt.bind(1, s).unwrap();
         let row = stmt.step_row().unwrap();
         row.get_text(0).unwrap();
     }
