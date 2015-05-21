@@ -124,7 +124,6 @@ fn db_error<T>(code: i32, msg: String) -> Result<T> {
 pub enum Error {
     NotDone,
     NoRow,
-    WrongParamCount(i32, i32),
     DbError(ErrorCode, String),
     UnknownDbError(i32, String),
     TypeMismatch(Type, Type),
@@ -137,7 +136,6 @@ impl std::fmt::Display for Error {
         match *self {
             Error::NotDone => write!(f, "Got row while expecting statement to be done."),
             Error::NoRow => write!(f, "Statement was done while expecting row."),
-            Error::WrongParamCount(expected, found) => write!(f, "Expected {} parameters but got {}.", expected, found),
             Error::DbError(err, ref msg) => write!(f, "The database operation failed with error {:?} ({}): {}", err, err as i32, msg),
             Error::UnknownDbError(code, ref msg) => write!(f, "The database operation failed with unknown error code {}: {}", code, msg),
             Error::TypeMismatch(expected, found) => write!(f, "Expected type {:?}, but found type {:?} while getting column value", expected, found),
@@ -152,7 +150,6 @@ impl std::error::Error for Error {
         match *self {
             Error::NotDone => "Got row while expecting statement to be done.",
             Error::NoRow => "Statement was done while expecting row.",
-            Error::WrongParamCount(..) => "Wrong parameter count.",
             Error::DbError(..) => "The database operation failed",
             Error::UnknownDbError(..) => "The database operation failed",
             Error::TypeMismatch(..) => "Unexpected type while getting column value",
@@ -242,9 +239,21 @@ pub fn open(filename: &str) -> Result<Database> {
 }
 
 
+impl Drop for Database {
+    fn drop(&mut self) {
+        let _ = self.do_close();
+    }
+}
 
 impl Database {
-    fn close(&mut self) -> Result<()> {
+    // probably preferable to relying on drop, because it can't return errors
+    pub fn close(mut self) -> Result<()> {
+        let result = self.do_close();
+        std::mem::forget(self); // don't want drop to run
+        result
+    }
+
+    fn do_close(&mut self) -> Result<()> {
         db_result!((), unsafe { sqlite3_close(self.ptr) }, db_errmsg(self.ptr))
     }
 
@@ -262,18 +271,22 @@ impl Database {
     }
 }
 
-impl Drop for Database {
+
+impl<'db> Drop for Statement<'db> {
     fn drop(&mut self) {
-        match self.close() {
-            Err(e) => println!("close() error in Database::drop(): {:?}", e),
-            _ => ()
-        }
+        let _ = self.do_finalize();
     }
 }
 
-
 impl<'db> Statement<'db> {
-    fn finalize(&mut self) -> Result<()> {
+    // probably preferable to relying on drop, because it can't return errors
+    pub fn finalize(mut self) -> Result<()> {
+        let result = self.do_finalize();
+        std::mem::forget(self); // don't want drop to run
+        result
+    }
+
+    fn do_finalize(&mut self) -> Result<()> {
         db_result!((), unsafe { sqlite3_finalize(self.ptr) }, stmt_errmsg(self.ptr))
     }
 
@@ -281,44 +294,33 @@ impl<'db> Statement<'db> {
         db_result!((), unsafe { sqlite3_reset(self.ptr) }, stmt_errmsg(self.ptr))
     }
 
-    pub fn bind_all(&mut self, vals: &[&BindValue]) -> Result<()> {
-        let expected = vals.len() as i32;
-        let found = self.column_count();
-        if expected != found {
-            return Err(Error::WrongParamCount(expected, found));
-        }
-
-        let mut pos = 0;
-        for val in vals {
-            pos += 1;
-            try!(val.bind(self, pos));
-        };
-        Ok(())
+    pub fn bind<T: Bind>(&mut self, tup: &T) -> Result<()> {
+        tup.bind(self)
     }
 
-    pub fn bind<T: BindValue>(&mut self, pos: i32, val: T) -> Result<()> {
-        val.bind(self, pos)
+    pub fn bind_value<T: BindValue>(&mut self, pos: i32, val: T) -> Result<()> {
+        BindValue::bind_value(self, pos, val)
     }
 
-    pub fn bind_int(&mut self, pos: i32, val: i32) -> Result<()> {
+    fn bind_int(&mut self, pos: i32, val: i32) -> Result<()> {
         db_result!((), unsafe { sqlite3_bind_int(self.ptr, pos, val) }, stmt_errmsg(self.ptr))
     }
-    pub fn bind_int64(&mut self, pos: i32, val: i64) -> Result<()> {
+    fn bind_int64(&mut self, pos: i32, val: i64) -> Result<()> {
         db_result!((), unsafe { sqlite3_bind_int64(self.ptr, pos, val) }, stmt_errmsg(self.ptr))
     }
-    pub fn bind_double(&mut self, pos: i32, val: f64) -> Result<()> {
+    fn bind_double(&mut self, pos: i32, val: f64) -> Result<()> {
         db_result!((), unsafe { sqlite3_bind_double(self.ptr, pos, val) }, stmt_errmsg(self.ptr))
     }
-    pub fn bind_text(&mut self, pos: i32, val: &str) -> Result<()> {
+    fn bind_text(&mut self, pos: i32, val: &str) -> Result<()> {
         db_result!((), unsafe { sqlite3_bind_text(self.ptr, pos, val.as_ptr(), val.len() as c_int, TRANSIENT) }, stmt_errmsg(self.ptr))
     }
-    pub fn bind_blob(&mut self, pos: i32, val: &[u8]) -> Result<()> {
+    fn bind_blob(&mut self, pos: i32, val: &[u8]) -> Result<()> {
         db_result!((), unsafe { sqlite3_bind_blob(self.ptr, pos, val.as_ptr(), val.len() as c_int, TRANSIENT) }, stmt_errmsg(self.ptr))
     }
-    pub fn bind_zeroblob(&mut self, pos: i32, len: i32) -> Result<()> {
+    fn bind_zeroblob(&mut self, pos: i32, len: i32) -> Result<()> {
         db_result!((), unsafe { sqlite3_bind_zeroblob(self.ptr, pos, len) }, stmt_errmsg(self.ptr))
     }
-    pub fn bind_null(&mut self, pos: i32) -> Result<()> {
+    fn bind_null(&mut self, pos: i32) -> Result<()> {
         db_result!((), unsafe { sqlite3_bind_null(self.ptr, pos) }, stmt_errmsg(self.ptr))
     }
 
@@ -356,47 +358,46 @@ impl<'db> Statement<'db> {
     }
 }
 
-impl<'db> Drop for Statement<'db> {
-    fn drop(&mut self) {
-        match self.finalize() {
-            Err(e) => println!("finalize() error in Statement::drop(): {:?}", e),
-            _ => ()
-        }
-    }
-}
+
+pub struct ZeroBlob(pub i32);
 
 
 pub trait BindValue {
-    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()>;
+    fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()>;
 }
 
 impl BindValue for i32 {
-    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
-        stmt.bind_int(pos, *self)
+    fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
+        stmt.bind_int(pos, val)
     }
 }
 impl BindValue for i64 {
-    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
-        stmt.bind_int64(pos, *self)
+    fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
+        stmt.bind_int64(pos, val)
     }
 }
 impl BindValue for f64 {
-    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
-        stmt.bind_double(pos, *self)
+    fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
+        stmt.bind_double(pos, val)
     }
 }
 impl<'a> BindValue for &'a str {
-    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
-        stmt.bind_text(pos, *self)
+    fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
+        stmt.bind_text(pos, val)
     }
 }
 impl<'a> BindValue for &'a [u8] {
-    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
-        stmt.bind_blob(pos, *self)
+    fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
+        stmt.bind_blob(pos, val)
+    }
+}
+impl BindValue for ZeroBlob {
+    fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
+        stmt.bind_zeroblob(pos, val.0)
     }
 }
 impl BindValue for () {
-    fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
+    fn bind_value(stmt: &mut Statement, pos: i32, _: Self) -> Result<()> {
         stmt.bind_null(pos)
     }
 }
@@ -406,8 +407,8 @@ macro_rules! array_impls {
     ($($N:expr)+) => {
         $(
             impl<'a> BindValue for &'a [u8; $N] {
-                fn bind(&self, stmt: &mut Statement, pos: i32) -> Result<()> {
-                    stmt.bind_blob(pos, *self)
+                fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
+                    stmt.bind_blob(pos, val)
                 }
             }
         )+
@@ -419,6 +420,37 @@ array_impls! {
     20 21 22 23 24 25 26 27 28 29
     30 31 32
 }
+
+
+pub trait Bind {
+    fn bind(&self, stmt: &mut Statement) -> Result<()>;
+}
+
+macro_rules! bind_tuple_instance {
+    ($($name:ident : $typ:ident),+) => {
+        impl<$($typ: BindValue + Copy,)+> Bind for ($($typ,)+) {
+            fn bind(&self, stmt: &mut Statement) -> Result<()> {
+                let mut pos = 0;
+                match *self {
+                    ($($name,)+) => { $( pos += 1; try!(BindValue::bind_value(stmt, pos, $name)); )+ }
+                };
+                Ok(())
+            }
+        }
+    }
+}
+
+bind_tuple_instance!(a:A);
+bind_tuple_instance!(a:A, b:B);
+bind_tuple_instance!(a:A, b:B, c:C);
+bind_tuple_instance!(a:A, b:B, c:C, d:D);
+bind_tuple_instance!(a:A, b:B, c:C, d:D, e:E);
+bind_tuple_instance!(a:A, b:B, c:C, d:D, e:E, f:F);
+bind_tuple_instance!(a:A, b:B, c:C, d:D, e:E, f:F, g:G);
+bind_tuple_instance!(a:A, b:B, c:C, d:D, e:E, f:F, g:G, h:H);
+bind_tuple_instance!(a:A, b:B, c:C, d:D, e:E, f:F, g:G, h:H, i:I);
+bind_tuple_instance!(a:A, b:B, c:C, d:D, e:E, f:F, g:G, h:H, i:I, j:J);
+
 
 
 macro_rules! assert_type {
@@ -468,7 +500,7 @@ impl<'db, 'stmt> Row<'db, 'stmt> {
 
 #[cfg(test)]
 mod tests {
-    use {open, BindValue};
+    use {open, Result, Statement, Bind};
     use std;
 
     struct Foo<'a> {
@@ -477,6 +509,17 @@ mod tests {
         c: f64,
         d: &'a str,
         e: &'a [u8]
+    }
+
+    impl<'a> Bind for Foo<'a> {
+        fn bind(&self, stmt: &mut Statement) -> Result<()> {
+            try!(stmt.bind_value(1, self.a));
+            try!(stmt.bind_value(2, self.b));
+            try!(stmt.bind_value(3, self.c));
+            try!(stmt.bind_value(4, self.d));
+            try!(stmt.bind_value(5, self.e));
+            Ok(())
+        }
     }
 
     #[test]
@@ -501,21 +544,25 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "WrongParamCount(3, 5)")]
-    fn test_bind_all_wrong_count() {
-        let db = open(":memory:").unwrap();
-        let mut stmt = db.prepare("SELECT ?, ?, ?, ?, ?").unwrap();
-        stmt.bind_all(&[&(99 as i32),
-                        &(66 as i64),
-                        &(3.14 as f64)]).unwrap();
-    }
-
-    #[test]
-    fn test_bind_all_echo() {
+    fn test_bind_tuple_echo() {
         let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?, ?, ?, ?, ?").unwrap();
         let foo = Foo { a:99, b:66, c:3.14, d:"foo", e:&[123]};
-        stmt.bind_all(&[&foo.a, &foo.b, &foo.c, &foo.d, &foo.e]).unwrap();
+        stmt.bind(&(foo.a, foo.b, foo.c, foo.d, foo.e)).unwrap();
+        let row = stmt.step_row().unwrap();
+        assert_eq!(99, row.get_int(0).unwrap());
+        assert_eq!(66, row.get_int64(1).unwrap());
+        assert_eq!(3.14, row.get_double(2).unwrap());
+        assert_eq!("foo", row.get_text(3).unwrap());
+        assert_eq!(&[123], row.get_blob(4).unwrap());
+    }
+
+    #[test]
+    fn test_bind_foo_echo() {
+        let db = open(":memory:").unwrap();
+        let mut stmt = db.prepare("SELECT ?, ?, ?, ?, ?").unwrap();
+        let foo = Foo { a:99, b:66, c:3.14, d:"foo", e:&[123]};
+        stmt.bind(&foo).unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!(99, row.get_int(0).unwrap());
         assert_eq!(66, row.get_int64(1).unwrap());
@@ -528,7 +575,7 @@ mod tests {
     fn test_simple_echo_int() {
         let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind(1, 888 as i32).unwrap();
+        stmt.bind_value(1, 888 as i32).unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!(888, row.get_int(0).unwrap());
     }
@@ -537,7 +584,7 @@ mod tests {
     fn test_simple_echo_int64() {
         let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind(1, 888 as i64).unwrap();
+        stmt.bind_value(1, 888 as i64).unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!(888, row.get_int64(0).unwrap());
     }
@@ -546,7 +593,7 @@ mod tests {
     fn test_simple_echo_double() {
         let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind(1, 3.14).unwrap();
+        stmt.bind_value(1, 3.14).unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!(3.14, row.get_double(0).unwrap());
     }
@@ -555,7 +602,7 @@ mod tests {
     fn test_simple_echo_text() {
         let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind(1, "foobar").unwrap();
+        stmt.bind_value(1, "foobar").unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!("foobar", row.get_text(0).unwrap());
     }
@@ -564,7 +611,7 @@ mod tests {
     fn test_simple_echo_blob() {
         let db = open(":memory:").unwrap();
         let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind(1, &[0,1,2]).unwrap();
+        stmt.bind_value(1, &[0,1,2]).unwrap();
         let row = stmt.step_row().unwrap();
         assert_eq!(&[0,1,2], row.get_blob(0).unwrap());
     }
@@ -593,7 +640,7 @@ mod tests {
         let mut stmt = db.prepare("SELECT ?").unwrap();
         let v = [0,1,2,3,4,255];
         let s = unsafe { std::str::from_utf8_unchecked(&v) };
-        stmt.bind(1, s).unwrap();
+        stmt.bind_value(1, s).unwrap();
         let row = stmt.step_row().unwrap();
         row.get_text(0).unwrap();
     }

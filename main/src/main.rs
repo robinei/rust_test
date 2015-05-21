@@ -63,26 +63,32 @@ fn main() {
         let mut db = sqlite::open(":memory:").unwrap();
         create_tables(&mut db).unwrap();
 
-        println!("prepare...");
-        let mut stmt0 = db.prepare("SELECT 1").unwrap();
-        let mut stmt = db.prepare("SELECT ?").unwrap();
-        stmt.bind(1, "jalla jalla").unwrap();
-        /*stmt.reset().unwrap();
-        if stmt.step().unwrap() {
-            println!("got value: {}", stmt.get(0));
-        }*/
-
         {
-            let row = stmt.step_row().unwrap();
-            let val = row.get_text(0).unwrap();
-            println!("got value: '{}'", val);
+            println!("prepare...");
+            let mut stmt0 = db.prepare("SELECT 1").unwrap();
+            let mut stmt = db.prepare("SELECT ?").unwrap();
+            stmt.bind(&("jalla jalla",)).unwrap();
+            /*stmt.reset().unwrap();
+            if stmt.step().unwrap() {
+                println!("got value: {}", stmt.get(0));
+            }*/
 
-            stmt0.step_row().unwrap();
+            {
+                let row = stmt.step_row().unwrap();
+                let val = row.get_text(0).unwrap();
+                println!("got value: '{}'", val);
+
+                stmt0.step_row().unwrap();
+            }
+            stmt.reset().unwrap();
+            stmt0.reset().unwrap();
+
+            stmt0.finalize().unwrap();
+            stmt.finalize().unwrap();
         }
-        stmt.reset().unwrap();
-        stmt0.reset().unwrap();
 
         //let mut stmt2 = db.prepare("CREATE TABLE test (foo INTEGER)").unwrap();
+        db.close().unwrap();
     }
 
     println!("shutdown...");
