@@ -5,6 +5,7 @@ extern crate num;
 use num::FromPrimitive;
 
 use libc::{c_char, c_int, c_double, uint8_t, int64_t, intptr_t};
+use libc::funcs::c95::string::{strlen};
 use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
 
@@ -25,6 +26,7 @@ extern {
     fn sqlite3_prepare_v2(db: *const DbHandle, sql: *const c_char, nbytes: c_int, stmt: *mut*const StmtHandle, tail: *mut*const c_char) -> c_int;
     fn sqlite3_finalize(stmt: *const StmtHandle) -> c_int;
     fn sqlite3_reset(stmt: *const StmtHandle) -> c_int;
+    fn sqlite3_clear_bindings(stmt: *const StmtHandle) -> c_int;
     fn sqlite3_step(stmt: *const StmtHandle) -> c_int;
 
     fn sqlite3_column_type(stmt: *const StmtHandle, col: c_int) -> c_int;
@@ -36,13 +38,16 @@ extern {
     fn sqlite3_column_bytes(stmt: *const StmtHandle, col: c_int) -> c_int;
     fn sqlite3_column_count(stmt: *const StmtHandle) -> c_int;
 
-    fn sqlite3_bind_int(stmt: *const StmtHandle, pos: c_int, val: c_int) -> c_int;
-    fn sqlite3_bind_int64(stmt: *const StmtHandle, pos: c_int, val: int64_t) -> c_int;
-    fn sqlite3_bind_double(stmt: *const StmtHandle, pos: c_int, val: c_double) -> c_int;
-    fn sqlite3_bind_text(stmt: *const StmtHandle, pos: c_int, val: *const uint8_t, len: c_int, destroy: intptr_t) -> c_int;
-    fn sqlite3_bind_blob(stmt: *const StmtHandle, pos: c_int, val: *const uint8_t, len: c_int, destroy: intptr_t) -> c_int;
-    fn sqlite3_bind_zeroblob(stmt: *const StmtHandle, pos: c_int, len: c_int) -> c_int;
-    fn sqlite3_bind_null(stmt: *const StmtHandle, pos: c_int) -> c_int;
+    fn sqlite3_bind_int(stmt: *const StmtHandle, index: c_int, val: c_int) -> c_int;
+    fn sqlite3_bind_int64(stmt: *const StmtHandle, index: c_int, val: int64_t) -> c_int;
+    fn sqlite3_bind_double(stmt: *const StmtHandle, index: c_int, val: c_double) -> c_int;
+    fn sqlite3_bind_text(stmt: *const StmtHandle, index: c_int, val: *const uint8_t, len: c_int, destroy: intptr_t) -> c_int;
+    fn sqlite3_bind_blob(stmt: *const StmtHandle, index: c_int, val: *const uint8_t, len: c_int, destroy: intptr_t) -> c_int;
+    fn sqlite3_bind_zeroblob(stmt: *const StmtHandle, index: c_int, len: c_int) -> c_int;
+    fn sqlite3_bind_null(stmt: *const StmtHandle, index: c_int) -> c_int;
+    fn sqlite3_bind_parameter_count(stmt: *const StmtHandle) -> c_int;
+    fn sqlite3_bind_parameter_index(stmt: *const StmtHandle, name: *const c_char) -> c_int;
+    fn sqlite3_bind_parameter_name(stmt: *const StmtHandle, index: c_int) -> *const c_char;
     
     fn sqlite3_db_handle(stmt: *const StmtHandle) -> *const DbHandle;
     fn sqlite3_stmt_readonly(stmt: *const StmtHandle) -> c_int;
@@ -126,6 +131,7 @@ pub enum Error {
     NoRow,
     ValueNull(i32, Type),
     TypeMismatch(Type, Type),
+    UnknownParameter(String),
     DbError(ErrorCode, String),
     UnknownDbError(i32, String),
     StrNulByte(std::ffi::NulError),
@@ -139,6 +145,7 @@ impl std::fmt::Display for Error {
             Error::NoRow => write!(f, "Statement was done while expecting row."),
             Error::ValueNull(col, expected) => write!(f, "The value at column {} was null, but expected {:?}.", col, expected),
             Error::TypeMismatch(expected, found) => write!(f, "Expected type {:?}, but found type {:?} while getting column value", expected, found),
+            Error::UnknownParameter(ref name) => write!(f, "Unknown parameter name: {}", name),
             Error::DbError(err, ref msg) => write!(f, "The database operation failed with error {:?} ({}): {}", err, err as i32, msg),
             Error::UnknownDbError(code, ref msg) => write!(f, "The database operation failed with unknown error code {}: {}", code, msg),
             Error::StrNulByte(ref err) => err.fmt(f),
@@ -153,9 +160,10 @@ impl std::error::Error for Error {
             Error::NotDone => "Got row while expecting statement to be done.",
             Error::NoRow => "Statement was done while expecting row.",
             Error::ValueNull(..) => "The column value was null.",
-            Error::TypeMismatch(..) => "Unexpected type while getting column value",
-            Error::DbError(..) => "The database operation failed",
-            Error::UnknownDbError(..) => "The database operation failed",
+            Error::TypeMismatch(..) => "Unexpected type while getting column value.",
+            Error::DbError(..) => "The database operation failed.",
+            Error::UnknownParameter(..) => "Unknown parameter name.",
+            Error::UnknownDbError(..) => "The database operation failed.",
             Error::StrNulByte(ref err) => err.description(),
             Error::BadUtf8(ref err) => err.description(),
         }
@@ -297,34 +305,43 @@ impl<'db> Statement<'db> {
         db_result!((), unsafe { sqlite3_reset(self.ptr) }, stmt_errmsg(self.ptr))
     }
 
+    pub fn clear_bindings(&mut self) -> Result<()> {
+        db_result!((), unsafe { sqlite3_clear_bindings(self.ptr) }, stmt_errmsg(self.ptr))
+    }
+
     pub fn bind<T: Bind>(&mut self, tup: &T) -> Result<()> {
         tup.bind(self)
     }
 
-    pub fn bind_value<T: BindValue>(&mut self, pos: i32, val: T) -> Result<()> {
-        BindValue::bind_value(self, pos, val)
+    pub fn bind_value<T: BindValue>(&mut self, index: i32, val: T) -> Result<()> {
+        BindValue::bind_value(self, index, val)
     }
 
-    fn bind_i32(&mut self, pos: i32, val: i32) -> Result<()> {
-        db_result!((), unsafe { sqlite3_bind_int(self.ptr, pos+1, val) }, stmt_errmsg(self.ptr))
+    pub fn bind_value_named<T: BindValue>(&mut self, name: &str, val: T) -> Result<()> {
+        let index = try!(self.parameter_index(name));
+        BindValue::bind_value(self, index, val)
     }
-    fn bind_i64(&mut self, pos: i32, val: i64) -> Result<()> {
-        db_result!((), unsafe { sqlite3_bind_int64(self.ptr, pos+1, val) }, stmt_errmsg(self.ptr))
+
+    fn bind_i32(&mut self, index: i32, val: i32) -> Result<()> {
+        db_result!((), unsafe { sqlite3_bind_int(self.ptr, index+1, val) }, stmt_errmsg(self.ptr))
     }
-    fn bind_f64(&mut self, pos: i32, val: f64) -> Result<()> {
-        db_result!((), unsafe { sqlite3_bind_double(self.ptr, pos+1, val) }, stmt_errmsg(self.ptr))
+    fn bind_i64(&mut self, index: i32, val: i64) -> Result<()> {
+        db_result!((), unsafe { sqlite3_bind_int64(self.ptr, index+1, val) }, stmt_errmsg(self.ptr))
     }
-    fn bind_text(&mut self, pos: i32, val: &str) -> Result<()> {
-        db_result!((), unsafe { sqlite3_bind_text(self.ptr, pos+1, val.as_ptr(), val.len() as c_int, TRANSIENT) }, stmt_errmsg(self.ptr))
+    fn bind_f64(&mut self, index: i32, val: f64) -> Result<()> {
+        db_result!((), unsafe { sqlite3_bind_double(self.ptr, index+1, val) }, stmt_errmsg(self.ptr))
     }
-    fn bind_blob(&mut self, pos: i32, val: &[u8]) -> Result<()> {
-        db_result!((), unsafe { sqlite3_bind_blob(self.ptr, pos+1, val.as_ptr(), val.len() as c_int, TRANSIENT) }, stmt_errmsg(self.ptr))
+    fn bind_text(&mut self, index: i32, val: &str) -> Result<()> {
+        db_result!((), unsafe { sqlite3_bind_text(self.ptr, index+1, val.as_ptr(), val.len() as c_int, TRANSIENT) }, stmt_errmsg(self.ptr))
     }
-    fn bind_zeroblob(&mut self, pos: i32, len: i32) -> Result<()> {
-        db_result!((), unsafe { sqlite3_bind_zeroblob(self.ptr, pos+1, len) }, stmt_errmsg(self.ptr))
+    fn bind_blob(&mut self, index: i32, val: &[u8]) -> Result<()> {
+        db_result!((), unsafe { sqlite3_bind_blob(self.ptr, index+1, val.as_ptr(), val.len() as c_int, TRANSIENT) }, stmt_errmsg(self.ptr))
     }
-    fn bind_null(&mut self, pos: i32) -> Result<()> {
-        db_result!((), unsafe { sqlite3_bind_null(self.ptr, pos+1) }, stmt_errmsg(self.ptr))
+    fn bind_zeroblob(&mut self, index: i32, len: i32) -> Result<()> {
+        db_result!((), unsafe { sqlite3_bind_zeroblob(self.ptr, index+1, len) }, stmt_errmsg(self.ptr))
+    }
+    fn bind_null(&mut self, index: i32) -> Result<()> {
+        db_result!((), unsafe { sqlite3_bind_null(self.ptr, index+1) }, stmt_errmsg(self.ptr))
     }
 
     pub fn step<'a>(&'a mut self) -> Result<Option<Row<'db, 'a>>> {
@@ -359,19 +376,41 @@ impl<'db> Statement<'db> {
     pub fn column_count(&self) -> i32 {
         unsafe { sqlite3_column_count(self.ptr) }
     }
+    pub fn parameter_count(&self) -> i32 {
+        unsafe { sqlite3_bind_parameter_count(self.ptr) }
+    }
+    pub fn parameter_index(&self, name: &str) -> Result<i32> {
+        let name_c = try!(CString::new(name));
+        let index = unsafe { sqlite3_bind_parameter_index(self.ptr, name_c.as_ptr()) };
+        match index {
+            0 => Err(Error::UnknownParameter(name.to_string())),
+            i => Ok(i - 1)
+        }
+    }
+    pub fn parameter_name(&self, index: i32) -> Option<&str> {
+        unsafe {
+            let data = sqlite3_bind_parameter_name(self.ptr, index+1);
+            if data == std::ptr::null() {
+                return None
+            };
+            let len = strlen(data);
+            let bytes = std::mem::transmute(std::slice::from_raw_parts(data, len as usize));
+            Some(std::str::from_utf8_unchecked(bytes))
+        }
+    }
 }
 
 
 pub trait BindValue {
-    fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()>;
+    fn bind_value(stmt: &mut Statement, index: i32, val: Self) -> Result<()>;
 }
 
 macro_rules! bind_value_impls {
     ($($binder:ident: $typ:ty as $to_typ:ty),*) => {
         $(
             impl<'a> BindValue for $typ {
-                fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
-                    stmt.$binder(pos, val as $to_typ)
+                fn bind_value(stmt: &mut Statement, index: i32, val: Self) -> Result<()> {
+                    stmt.$binder(index, val as $to_typ)
                 }
             }
         )*
@@ -395,25 +434,25 @@ bind_value_impls!(
 pub struct ZeroBlob(pub i32);
 
 impl<'a> BindValue for &'a Vec<u8> {
-    fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
-        stmt.bind_blob(pos, &val[..])
+    fn bind_value(stmt: &mut Statement, index: i32, val: Self) -> Result<()> {
+        stmt.bind_blob(index, &val[..])
     }
 }
 impl BindValue for ZeroBlob {
-    fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
-        stmt.bind_zeroblob(pos, val.0)
+    fn bind_value(stmt: &mut Statement, index: i32, val: Self) -> Result<()> {
+        stmt.bind_zeroblob(index, val.0)
     }
 }
 impl BindValue for () {
-    fn bind_value(stmt: &mut Statement, pos: i32, _: Self) -> Result<()> {
-        stmt.bind_null(pos)
+    fn bind_value(stmt: &mut Statement, index: i32, _: Self) -> Result<()> {
+        stmt.bind_null(index)
     }
 }
 impl<T: BindValue> BindValue for Option<T> {
-    fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
+    fn bind_value(stmt: &mut Statement, index: i32, val: Self) -> Result<()> {
         match val {
-            Some(x) => BindValue::bind_value(stmt, pos, x),
-            None => stmt.bind_null(pos)
+            Some(x) => BindValue::bind_value(stmt, index, x),
+            None => stmt.bind_null(index)
         }
     }
 }
@@ -423,8 +462,8 @@ macro_rules! array_impls {
     ($($N:expr)+) => {
         $(
             impl<'a> BindValue for &'a [u8; $N] {
-                fn bind_value(stmt: &mut Statement, pos: i32, val: Self) -> Result<()> {
-                    stmt.bind_blob(pos, val)
+                fn bind_value(stmt: &mut Statement, index: i32, val: Self) -> Result<()> {
+                    stmt.bind_blob(index, val)
                 }
             }
         )+
@@ -448,8 +487,8 @@ macro_rules! bind_tuple_instance {
             fn bind(&self, stmt: &mut Statement) -> Result<()> {
                 match *self {
                     ($($name,)+) => {
-                        let mut pos = -1;
-                        $( pos += 1; try!(BindValue::bind_value(stmt, pos, $name)); )+
+                        let mut index = -1;
+                        $( index += 1; try!(BindValue::bind_value(stmt, index, $name)); )+
                     }
                 };
                 Ok(())
@@ -603,8 +642,8 @@ macro_rules! get_impl {
     ($($name:ident: $typ:ident),+) => {
         impl<'row, $($typ,)+> Get<'row> for ($($typ,)+) where $($typ : GetValue<'row>,)+ {
             fn get(row: &'row Row) -> Result<($($typ,)+)> {
-                let mut pos = -1;
-                $( pos += 1; let $name : $typ = try!(row.get_value(pos)); )+
+                let mut index = -1;
+                $( index += 1; let $name : $typ = try!(row.get_value(index)); )+
                 Ok(($($name,)+))
             }
         }
@@ -775,6 +814,23 @@ mod tests {
         let row : (i32, f64) = stmt.step_row().unwrap().get().unwrap();
         assert_eq!(66, row.0);
         assert_eq!(3.14, row.1);
+    }
+
+    #[test]
+    fn test_named_parameters() {
+        let db = open(":memory:").unwrap();
+        let stmt = db.prepare("SELECT ?, ?, $foo, 56").unwrap();
+        assert_eq!(3, stmt.parameter_count());
+        assert_eq!(2, stmt.parameter_index("$foo").unwrap());
+        assert_eq!("$foo", stmt.parameter_name(2).unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "UnknownParameter(\"$bar\")")]
+    fn test_parameter_index_fails() {
+        let db = open(":memory:").unwrap();
+        let stmt = db.prepare("SELECT ?, ?, $foo, 56").unwrap();
+        assert_eq!(10, stmt.parameter_index("$bar").unwrap());
     }
 
     #[test]
