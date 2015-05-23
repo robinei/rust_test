@@ -55,7 +55,6 @@ fn create_tables(db: &mut sqlite::Database) -> sqlite::Result<()> {
 fn main() {
     println!("initialize...");
     sqlite::initialize().unwrap();
-
     
     //let mut stmt: sqlite::Statement;
     {
@@ -70,12 +69,12 @@ fn main() {
             stmt.bind(&("jalla jalla",)).unwrap();
             /*stmt.reset().unwrap();
             if stmt.step().unwrap() {
-                println!("got value: {}", stmt.get(0));
+                println!("got value: {}", stmt.get_value(0));
             }*/
 
             {
                 let row = stmt.step_row().unwrap();
-                let val = row.get_text(0).unwrap();
+                let val: &str = row.get_value(0).unwrap();
                 println!("got value: '{}'", val);
 
                 stmt0.step_row().unwrap();
