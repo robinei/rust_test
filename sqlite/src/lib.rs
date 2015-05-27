@@ -4,10 +4,11 @@ extern crate libc;
 extern crate num;
 use num::FromPrimitive;
 
-use libc::{c_char, c_int, c_double, uint8_t, int64_t, intptr_t};
-use libc::funcs::c95::string::{strlen};
+use libc::{c_void, c_char, c_int, c_double, uint8_t, int64_t, intptr_t};
 use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
+
+pub use std::cmp::{Ordering};
 
 
 enum DbHandle {}
@@ -22,6 +23,7 @@ extern {
     fn sqlite3_extended_result_codes(db: *const DbHandle, onoff: c_int) -> c_int;
     fn sqlite3_errmsg(db: *const DbHandle) -> *const c_char;
     fn sqlite3_changes(db: *const DbHandle) -> c_int;
+    fn sqlite3_create_collation_v2(db: *const DbHandle, name: *const c_char, textrep: c_int, arg: *mut c_void, compare: *const c_void, destroy: *const c_void) -> c_int;
 
     fn sqlite3_prepare_v2(db: *const DbHandle, sql: *const c_char, nbytes: c_int, stmt: *mut*const StmtHandle, tail: *mut*const c_char) -> c_int;
     fn sqlite3_finalize(stmt: *const StmtHandle) -> c_int;
@@ -53,6 +55,8 @@ extern {
     fn sqlite3_stmt_readonly(stmt: *const StmtHandle) -> c_int;
     fn sqlite3_stmt_busy(stmt: *const StmtHandle) -> c_int;
 }
+
+
 
 
 //const STATIC: intptr_t = 0 as intptr_t;
@@ -212,6 +216,7 @@ fn db_errmsg(db: *const DbHandle) -> String {
     unsafe {
         let c_str = CStr::from_ptr(sqlite3_errmsg(db));
         let bytes = c_str.to_bytes();
+        // sqlite3_errmsg is specified to return UTF8, so we do unchecked conversion
         std::str::from_utf8_unchecked(bytes).to_string()
     }
 }
@@ -277,9 +282,59 @@ impl Database {
         db_result!(stmt, code, db_errmsg(self.ptr))
     }
 
+    pub fn exec<T: Bind>(&self, sql: &str, params: T) -> Result<()> {
+        let mut stmt = try!(self.prepare(sql));
+        try!(params.bind(&mut stmt));
+        stmt.step_done()
+    }
+
     pub fn changes(&self) -> i32 {
         unsafe { sqlite3_changes(self.ptr) }
     }
+
+    pub fn create_collation<F>(&mut self, name: &str, comparer: F) -> Result<()>
+        where F: 'static + Fn(&str, &str) -> Ordering
+    {
+        let name_c = try!(CString::new(name));
+        db_result!((), unsafe {
+            sqlite3_create_collation_v2(self.ptr, name_c.as_ptr(), 1 /* SQLITE_UTF8 */,
+                                        std::mem::transmute(Box::new(comparer)),
+                                        std::mem::transmute(invoke_comparer::<F>),
+                                        std::mem::transmute(destroy_comparer::<F>))
+        }, db_errmsg(self.ptr))
+    }
+}
+
+extern "C" fn invoke_comparer<F>(arg: *mut c_void, len1: c_int, str1: *const c_char, len2: c_int, str2: *const c_char) -> c_int
+    where F: Fn(&str, &str) -> Ordering
+{
+    let comparer: Box<F> = unsafe { std::mem::transmute(arg) };
+    
+    // we specified in the call to sqlite3_create_collation_v2 that we wanted UTF8 strings
+    // so we perform unchecked conversions here
+    let s1 = unsafe {
+        let bytes = std::mem::transmute(std::slice::from_raw_parts(str1, len1 as usize));
+        std::str::from_utf8_unchecked(bytes)
+    };
+    let s2 = unsafe {
+        let bytes = std::mem::transmute(std::slice::from_raw_parts(str2, len2 as usize));
+        std::str::from_utf8_unchecked(bytes)
+    };
+
+    match comparer(s1, s2) {
+        Ordering::Less => -1,
+        Ordering::Equal => 0,
+        Ordering::Greater => 1
+    }
+}
+
+extern "C" fn destroy_comparer<F>(arg: *mut c_void) {
+    println!("before free");
+    {
+        let _: Box<F> = unsafe { std::mem::transmute(arg) };
+        // now it will be dropped
+    }
+    println!("after free");
 }
 
 
@@ -370,15 +425,19 @@ impl<'db> Statement<'db> {
     pub fn readonly(&self) -> bool {
         unsafe { sqlite3_stmt_readonly(self.ptr) != 0 }
     }
+
     pub fn busy(&self) -> bool {
         unsafe { sqlite3_stmt_busy(self.ptr) != 0 }
     }
+
     pub fn column_count(&self) -> i32 {
         unsafe { sqlite3_column_count(self.ptr) }
     }
+
     pub fn parameter_count(&self) -> i32 {
         unsafe { sqlite3_bind_parameter_count(self.ptr) }
     }
+
     pub fn parameter_index(&self, name: &str) -> Result<i32> {
         let name_c = try!(CString::new(name));
         let index = unsafe { sqlite3_bind_parameter_index(self.ptr, name_c.as_ptr()) };
@@ -387,14 +446,16 @@ impl<'db> Statement<'db> {
             i => Ok(i - 1)
         }
     }
+
     pub fn parameter_name(&self, index: i32) -> Option<&str> {
         unsafe {
             let data = sqlite3_bind_parameter_name(self.ptr, index+1);
             if data == std::ptr::null() {
                 return None
             };
-            let len = strlen(data);
-            let bytes = std::mem::transmute(std::slice::from_raw_parts(data, len as usize));
+            let c_str = CStr::from_ptr(data);
+            let bytes = c_str.to_bytes();
+            // parameter names are guaranteed to be UTF8, so we do unchecked conversion
             Some(std::str::from_utf8_unchecked(bytes))
         }
     }
@@ -481,6 +542,12 @@ pub trait Bind {
     fn bind(&self, stmt: &mut Statement) -> Result<()>;
 }
 
+impl Bind for () {
+    fn bind(&self, _: &mut Statement) -> Result<()> {
+        Ok(())
+    }
+}
+
 macro_rules! bind_tuple_instance {
     ($($name:ident : $typ:ident),+) => {
         impl<$($typ: BindValue + Copy,)+> Bind for ($($typ,)+) {
@@ -531,7 +598,7 @@ macro_rules! getter_converters {
             fn $name(&self, col: i32) -> Result<$typ> {
                 match self.$from_name(col) {
                     Ok(val) => Ok(val as $typ),
-                    Err(err) => Err(err)
+                    Err(e) => Err(e)
                 }
             }
         )*
@@ -602,7 +669,7 @@ impl<'row, T: GetValue<'row>> GetValue<'row> for Option<T> {
         match result {
             Ok(value) => Ok(Some(value)),
             Err(Error::ValueNull(..)) => Ok(None),
-            Err(err) => Err(err)
+            Err(e) => Err(e)
         }
     }
 }
@@ -710,6 +777,27 @@ mod tests {
         let db = open(":memory:").unwrap();
         let stmt = db.prepare("SELECT ?, ?, ?").unwrap();
         assert_eq!(3, stmt.column_count());
+    }
+
+    #[test]
+    fn test_create_collation() {
+        let mut db = open(":memory:").unwrap();
+        db.create_collation("test_collate", |a, b| b.cmp(a)).unwrap();
+        db.exec("CREATE TABLE test (foo TEXT)", ()).unwrap();
+        let mut stmt = db.prepare("INSERT INTO test VALUES(?)").unwrap();
+        stmt.reset().unwrap(); stmt.bind_value(0, "ja").unwrap(); stmt.step_done().unwrap();
+        stmt.reset().unwrap(); stmt.bind_value(0, "asdf").unwrap(); stmt.step_done().unwrap();
+        stmt.reset().unwrap(); stmt.bind_value(0, "xyz").unwrap(); stmt.step_done().unwrap();
+        let mut stmt = db.prepare("SELECT * FROM test ORDER BY foo COLLATE test_collate ASC").unwrap();
+        { let row = stmt.step_row().unwrap(); assert_eq!("xyz", row.get_value::<&str>(0).unwrap()); }
+        { let row = stmt.step_row().unwrap(); assert_eq!("ja", row.get_value::<&str>(0).unwrap()); }
+        { let row = stmt.step_row().unwrap(); assert_eq!("asdf", row.get_value::<&str>(0).unwrap()); }
+        stmt.step_done().unwrap();
+        let mut stmt = db.prepare("SELECT * FROM test ORDER BY foo COLLATE test_collate DESC").unwrap();
+        { let row = stmt.step_row().unwrap(); assert_eq!("asdf", row.get_value::<&str>(0).unwrap()); }
+        { let row = stmt.step_row().unwrap(); assert_eq!("ja", row.get_value::<&str>(0).unwrap()); }
+        { let row = stmt.step_row().unwrap(); assert_eq!("xyz", row.get_value::<&str>(0).unwrap()); }
+        stmt.step_done().unwrap();
     }
 
     #[test]
